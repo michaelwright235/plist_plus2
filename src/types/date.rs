@@ -53,10 +53,6 @@ impl Date<'_> {
     /// Sets the date with a Unix Timestamp.
     ///
     /// The duration must represent a time passed since the Unix Epoch.
-    ///
-    /// Currently panics on the C side due to a
-    /// [bug](https://github.com/libimobiledevice/libplist/issues/264).
-    /// Use [Value::replace_with] if needed.
     pub fn set(&mut self, date: Duration) {
         let mac_epoch = Duration::from_secs(MAC_EPOCH);
         let secs = (date.as_secs() as i64 - mac_epoch.as_secs() as i64) as i32;
@@ -151,7 +147,6 @@ mod tests {
         assert_eq!(duration, date.get());
     }
 
-    #[ignore = "https://github.com/libimobiledevice/libplist/issues/264"]
     #[test]
     fn set_random_date() {
         let timestamp = 1546635600123456; // Jan 04 2019 21:00:00.123456
