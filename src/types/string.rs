@@ -1,71 +1,105 @@
-// jkcoxson
+use crate::{unsafe_bindings, Value};
+use std::ffi::CString;
 
-use std::{ffi::CString, os::raw::c_char};
+crate::impl_node!(
+    /// A string plist node.
+    PString
+);
 
-use log::trace;
-
-use crate::{error::PlistError, unsafe_bindings, Plist, PlistType};
-
-impl Plist {
-    /// Creates a new plist with type string
-    pub fn new_string(string: &str) -> Plist {
-        trace!("Generating new string plist");
-        let string = match CString::new(string) {
-            Ok(s) => s,
-            Err(_) => {
-                panic!("Could not convert string to CString");
-            }
-        };
-        unsafe { unsafe_bindings::plist_new_string(string.as_ptr() as *const c_char) }.into()
-    }
-    /// Returns the value of the string
-    pub fn get_string_val(&self) -> Result<String, PlistError> {
-        if self.plist_type != PlistType::String {
-            return Err(PlistError::InvalidArg);
-        }
-        let mut val = std::ptr::null_mut();
-        trace!("Getting string value");
-        unsafe { unsafe_bindings::plist_get_string_val(self.plist_t, &mut val) };
-        trace!("Converting cstring to string");
-        let val = unsafe {
-            std::ffi::CString::from_raw(val)
-                .to_str()
-                .unwrap()
-                .to_string()
-        };
-        Ok(val)
-    }
-    /// Returns a C pointer to a CString containing the value of the string
-    /// # Safety
-    /// Don't be stupid
-    pub unsafe fn get_string_ptr(&self) -> *const c_char {
-        unsafe_bindings::plist_get_string_ptr(self.plist_t, std::ptr::null_mut())
-    }
-    /// Sets a plist to type string with the given value
-    pub fn set_string_val(&self, val: &str) {
-        let val = CString::new(val).unwrap();
-        trace!("Setting string value");
-        unsafe {
-            unsafe_bindings::plist_set_string_val(self.plist_t, val.as_ptr() as *const c_char)
+impl PString<'_> {
+    /// Creates a new string plist node.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the supplied string contains an internal 0 byte.
+    pub fn new(string: impl Into<String>) -> Self {
+        let string: CString = CString::new(string.into()).unwrap();
+        Self {
+            pointer: unsafe { unsafe_bindings::plist_new_string(string.as_ptr() as *const _) },
+            false_drop: false,
+            phantom: std::marker::PhantomData,
         }
     }
-}
 
-impl From<String> for Plist {
-    fn from(plist_data: String) -> Self {
-        Plist::new_string(&plist_data)
+    /// Returns the value of the string.
+    pub fn as_str(&self) -> &'_ str {
+        let mut len = 0;
+        let ptr = unsafe { unsafe_bindings::plist_get_string_ptr(self.pointer, &mut len) };
+        let slice = unsafe { std::slice::from_raw_parts(ptr as *const u8, len as usize) };
+        // TODO: add a check for correct utf-8 encoding?
+        std::str::from_utf8(slice).unwrap()
+    }
+
+    /// Sets the value string with the given value.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the supplied string contains an internal 0 byte.
+    pub fn set(&mut self, string: impl Into<String>) {
+        let c_string = CString::new(string.into()).unwrap();
+        unsafe { unsafe_bindings::plist_set_string_val(self.pointer, c_string.as_ptr()) }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> PString<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_string().unwrap()
     }
 }
 
-impl From<&String> for Plist {
-    fn from(plist_data: &String) -> Self {
-        Plist::new_string(plist_data)
+impl From<String> for PString<'_> {
+    fn from(value: String) -> Self {
+        PString::new(value)
     }
 }
 
-impl From<&str> for Plist {
-    fn from(plist_data: &str) -> Self {
-        Plist::new_string(plist_data)
+impl From<&str> for PString<'_> {
+    fn from(value: &str) -> Self {
+        PString::new(value.to_string())
+    }
+}
+
+impl From<PString<'_>> for String {
+    fn from(value: PString<'_>) -> Self {
+        String::from(value.as_str())
+    }
+}
+
+impl From<&str> for Value<'_> {
+    fn from(value: &str) -> Self {
+        PString::new(value.to_string()).into()
+    }
+}
+
+impl From<String> for Value<'_> {
+    fn from(value: String) -> Self {
+        PString::new(value.to_string()).into()
+    }
+}
+
+impl PartialEq for PString<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl std::fmt::Display for PString<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_str().fmt(f)
+    }
+}
+
+impl Default for PString<'_> {
+    fn default() -> Self {
+        String::default().into()
+    }
+}
+
+#[cfg(feature = "clean_debug")]
+impl std::fmt::Debug for PString<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_str().fmt(f)
     }
 }
 
@@ -73,10 +107,14 @@ impl From<&str> for Plist {
 mod tests {
     use super::*;
 
+    const STRING1: &str = "this is a string";
+    const STRING2: &str = "this is a different string";
+
     #[test]
-    fn string_test() {
-        let p = Plist::new_string("this is a string");
-        p.set_string_val("this is a different string");
-        assert_eq!(p.get_string_val().unwrap(), "this is a different string")
+    fn string() {
+        let mut p = PString::new(STRING1);
+        assert_eq!(p.as_str(), STRING1);
+        p.set(STRING2);
+        assert_eq!(p.as_str(), STRING2);
     }
 }

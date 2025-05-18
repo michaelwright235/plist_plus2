@@ -1,28 +1,86 @@
-// jkcoxson
+use crate::unsafe_bindings;
 
-use crate::{debug, unsafe_bindings, Plist, PlistType};
+crate::impl_node!(
+    /// A plist `uid` plist node. These are found exclusively in plists created by NSKeyedArchiver.
+    Uid
+);
 
-impl Plist {
-    /// Creates a new plist with type uid
-    pub fn new_uid(uid: u64) -> Plist {
-        debug!("Generating new plist uid");
-        unsafe { unsafe_bindings::plist_new_uid(uid) }.into()
-    }
-    /// Returns the value of the uid
-    pub fn get_uid_val(&self) -> Result<u64, ()> {
-        if self.plist_type != PlistType::Uid {
-            return Err(());
+impl Uid<'_> {
+    /// Creates a new uid plist node.
+    pub fn new(uid: u64) -> Self {
+        Self {
+            pointer: unsafe { unsafe_bindings::plist_new_uid(uid) },
+            false_drop: false,
+            phantom: std::marker::PhantomData,
         }
-        let mut val = unsafe { std::mem::zeroed() };
-        debug!("Getting uid value");
+    }
+
+    /// Returns the value of the uid.
+    pub fn get(&self) -> u64 {
+        let mut uid = 0;
         unsafe {
-            unsafe_bindings::plist_get_uid_val(self.plist_t, &mut val);
+            unsafe_bindings::plist_get_uid_val(self.pointer, &mut uid);
         }
-        Ok(val)
+        uid
     }
-    /// Sets a plist to type uid with the given value
-    pub fn set_uid_val(&self, val: u64) {
-        debug!("Setting uid value");
-        unsafe { unsafe_bindings::plist_set_uid_val(self.plist_t, val) }
+
+    /// Sets the uid with the given value.
+    pub fn set(&mut self, uid: u64) {
+        unsafe { unsafe_bindings::plist_set_uid_val(self.pointer, uid) }
+    }
+}
+
+impl From<Uid<'_>> for u64 {
+    fn from(value: Uid<'_>) -> Self {
+        value.get()
+    }
+}
+
+impl From<u64> for Uid<'_> {
+    fn from(value: u64) -> Self {
+        Uid::new(value)
+    }
+}
+
+impl From<u32> for Uid<'_> {
+    fn from(value: u32) -> Self {
+        Uid::new(value as u64)
+    }
+}
+
+impl From<u16> for Uid<'_> {
+    fn from(value: u16) -> Self {
+        Uid::new(value as u64)
+    }
+}
+
+impl From<u8> for Uid<'_> {
+    fn from(value: u8) -> Self {
+        Uid::new(value as u64)
+    }
+}
+
+impl PartialEq for Uid<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl Default for Uid<'_> {
+    fn default() -> Self {
+        u64::default().into()
+    }
+}
+
+impl std::fmt::Display for Uid<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+#[cfg(feature = "clean_debug")]
+impl std::fmt::Debug for Uid<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
     }
 }

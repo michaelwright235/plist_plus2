@@ -1,13 +1,18 @@
-// jkcoxson
-
-use crate::{error::PlistError, unsafe_bindings, Plist, PlistType};
-use log::trace;
+use crate::{unsafe_bindings, Value};
 use std::time::{Duration, SystemTime};
 
 const MAC_EPOCH: u64 = 978307200; // 01/01/2001
 
-impl Plist {
-    /// Returns a new plist with a date.
+crate::impl_node!(
+    /// A date plist node.
+    ///
+    /// Represents a time passed since the Unix Epoch.
+    Date
+);
+
+impl Date<'_> {
+    /// Creates a new date plist node.
+    ///
     /// The duration must represent a time passed since the Unix Epoch.
     ///
     /// Note: the original library expects you to pass the number of seconds
@@ -16,54 +21,98 @@ impl Plist {
     /// # Example
     /// ```rust
     /// use std::time::{Duration, SystemTime};
-    /// use plist_plus::Plist;
+    /// use plist_plus::Date;
     ///
-    /// let some_date = Plist::new_date(Duration::from_secs(1546635600));
-    /// let now: Plist = SystemTime::now().into();
+    /// let some_date = Date::new(Duration::from_secs(1546635600));
+    /// let now: Date = SystemTime::now().into();
     /// ```
-    pub fn new_date(date: Duration) -> Plist {
-        trace!("Generating new date plist");
+    pub fn new(date: Duration) -> Self {
         // The number of seconds since 01/01/2001
-        let duration = date - Duration::from_secs(MAC_EPOCH);
-        let secs = duration.as_secs();
-        let usecs = duration.as_micros() - (secs * 1000000) as u128;
-        unsafe { unsafe_bindings::plist_new_date(secs as i32, usecs as i32) }.into()
+        let mac_epoch = Duration::from_secs(MAC_EPOCH);
+        let secs = (date.as_secs() as i64 - mac_epoch.as_secs() as i64) as i32;
+        let usecs = (((date.as_micros() as i64 - mac_epoch.as_micros() as i64) as i128)
+            - (secs as i128 * 1000000)) as i32;
+
+        let ptr = unsafe { unsafe_bindings::plist_new_date(secs, usecs) };
+        Self {
+            pointer: ptr,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }
     }
 
-    /// Returns a duration (a Unix Timestamp) of the date
-    pub fn get_date_val(&self) -> Result<Duration, PlistError> {
-        if self.plist_type != PlistType::Date {
-            return Err(PlistError::InvalidArg);
-        }
+    /// Returns a duration (a Unix Timestamp) of the date.
+    pub fn get(&self) -> Duration {
         let mut sec = unsafe { std::mem::zeroed() };
         let mut usec = unsafe { std::mem::zeroed() };
-        trace!("Getting date value");
-        unsafe { unsafe_bindings::plist_get_date_val(self.plist_t, &mut sec, &mut usec) };
-        let date = usec as u64 + (sec as u64) * 1000000;
-        Ok(Duration::from_micros(date) + Duration::from_secs(MAC_EPOCH))
+        unsafe { unsafe_bindings::plist_get_date_val(self.pointer, &mut sec, &mut usec) };
+        let date = usec as i64 + (sec as i64) * 1000000;
+        Duration::from_micros((MAC_EPOCH as i64 * 1000000 + date) as u64)
     }
 
-    /// Sets the date with a Unix Timestamp
-    pub fn set_date_val(&self, date: Duration) {
-        let duration = date - Duration::from_secs(MAC_EPOCH);
-        let secs = duration.as_secs();
-        let usecs = duration.as_micros() - (secs * 1000000) as u128;
-        trace!("Setting date value");
-        unsafe { unsafe_bindings::plist_set_date_val(self.plist_t, secs as i32, usecs as i32) };
+    /// Sets the date with a Unix Timestamp.
+    ///
+    /// The duration must represent a time passed since the Unix Epoch.
+    ///
+    /// Currently panics on the C side due to a
+    /// [bug](https://github.com/libimobiledevice/libplist/issues/264).
+    /// Use [Value::replace_with] if needed.
+    pub fn set(&mut self, date: Duration) {
+        let mac_epoch = Duration::from_secs(MAC_EPOCH);
+        let secs = (date.as_secs() as i64 - mac_epoch.as_secs() as i64) as i32;
+        let usecs = (((date.as_micros() as i64 - mac_epoch.as_micros() as i64) as i128)
+            - (secs as i128 * 1000000)) as i32;
+        unsafe { unsafe_bindings::plist_set_date_val(self.pointer, secs, usecs) };
     }
 }
 
-impl From<Duration> for Plist {
+impl From<Duration> for Date<'_> {
     fn from(value: Duration) -> Self {
-        Plist::new_date(value)
+        Date::new(value)
     }
 }
 
-impl From<SystemTime> for Plist {
+impl From<SystemTime> for Date<'_> {
     fn from(value: SystemTime) -> Self {
-        // unwrapping should be safe since UNIX_EPOCH
-        // is always lesser than SystemTime::now()
-        Plist::new_date(value.duration_since(SystemTime::UNIX_EPOCH).unwrap())
+        // unwrapping is safe since UNIX_EPOCH is always lesser than SystemTime::now()
+        Date::new(value.duration_since(SystemTime::UNIX_EPOCH).unwrap())
+    }
+}
+
+impl From<Duration> for Value<'_> {
+    fn from(value: Duration) -> Self {
+        Date::from(value).into()
+    }
+}
+
+impl From<SystemTime> for Value<'_> {
+    fn from(value: SystemTime) -> Self {
+        Date::from(value).into()
+    }
+}
+
+impl From<Date<'_>> for Duration {
+    fn from(value: Date<'_>) -> Self {
+        value.get()
+    }
+}
+
+impl PartialEq for Date<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+
+impl Default for Date<'_> {
+    fn default() -> Self {
+        Duration::default().into()
+    }
+}
+
+#[cfg(feature = "clean_debug")]
+impl std::fmt::Debug for Date<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
     }
 }
 
@@ -72,24 +121,27 @@ mod tests {
     use super::*;
     use std::time::{Duration, SystemTime};
 
-    #[ignore = "https://github.com/libimobiledevice/libplist/issues/264"]
     #[test]
     fn check_unix_mac_date() {
         let timestamp = 1546635600123456; // Jan 04 2019 21:00:00.123456
 
         let unix_date = Duration::from_micros(timestamp);
-        let unix_plist = Plist::new_date(unix_date);
+        let unix_plist = Date::new(unix_date);
 
         let secs = 1546635600 - MAC_EPOCH;
         let usecs = 123456;
 
-        let mac_plist: Plist =
-            unsafe { unsafe_bindings::plist_new_date(secs as i32, usecs) }.into();
+        let mac_plist =
+            unsafe { crate::from_pointer(unsafe_bindings::plist_new_date(secs as i32, usecs)) };
 
-        assert_eq!(
-            unix_plist.get_date_val().unwrap(),
-            mac_plist.get_date_val().unwrap()
-        );
+        assert_eq!(unix_plist.get(), mac_plist.as_date().unwrap().get());
+    }
+
+    #[test]
+    fn date_before_mac_epoch() {
+        let duration = Duration::from_secs(358860726); // 16 May 1981 at 15:32:06
+        let date = Date::new(duration.clone());
+        assert_eq!(duration, date.get());
     }
 
     #[ignore = "https://github.com/libimobiledevice/libplist/issues/264"]
@@ -98,13 +150,9 @@ mod tests {
         let timestamp = 1546635600123456; // Jan 04 2019 21:00:00.123456
 
         let date = Duration::from_micros(timestamp);
-        let plist = Plist::new_date(
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap(),
-        ); // create a new date with a current time
-        plist.set_date_val(date); // set a new time
+        let mut plist: Date<'_> = SystemTime::now().into(); // create a new date with a current time
+        plist.set(date); // set a new time
 
-        assert_eq!(date, plist.get_date_val().unwrap());
+        assert_eq!(date, plist.get());
     }
 }

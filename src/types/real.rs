@@ -1,45 +1,75 @@
-// jkcoxson
+use crate::{unsafe_bindings, Value};
 
-use log::trace;
+crate::impl_node!(
+    /// A real `f64` plist node.
+    Real
+);
 
-use crate::{error::PlistError, unsafe_bindings, Plist, PlistType};
-
-impl Plist {
-    /// Creates a new plist with type float
-    pub fn new_real(real: f64) -> Plist {
-        trace!("Generating new float plist");
-        unsafe { unsafe_bindings::plist_new_real(real) }.into()
-    }
-    /// Returns the value of the float
-    pub fn get_real_val(&self) -> Result<f64, PlistError> {
-        if self.plist_type != PlistType::Real {
-            return Err(PlistError::InvalidArg);
+impl Real<'_> {
+    /// Creates a new real plist node from a float.
+    pub fn new(value: f64) -> Self {
+        Self {
+            pointer: unsafe { unsafe_bindings::plist_new_real(value) },
+            false_drop: false,
+            phantom: std::marker::PhantomData,
         }
+    }
+
+    /// Returns the value of the real.
+    pub fn as_float(&self) -> f64 {
         let mut val = unsafe { std::mem::zeroed() };
-        trace!("Getting float value");
-        Ok(unsafe {
-            unsafe_bindings::plist_get_real_val(self.plist_t, &mut val);
-            val
-        })
+        unsafe {
+            unsafe_bindings::plist_get_real_val(self.pointer, &mut val);
+        };
+        val
     }
-    /// Sets a plist to type float with the given value
-    pub fn set_real_val(&self, val: f64) -> Result<(), PlistError> {
-        trace!("Setting float value");
-        unsafe { unsafe_bindings::plist_set_real_val(self.plist_t, val) }
-        Ok(())
+
+    /// Sets the value of the real with the given float.
+    pub fn set(&mut self, value: f64) {
+        unsafe { unsafe_bindings::plist_set_real_val(self.pointer, value) }
     }
 }
 
-impl TryFrom<Plist> for f64 {
-    type Error = PlistError;
-    fn try_from(plist: Plist) -> Result<Self, Self::Error> {
-        plist.get_real_val()
+impl From<f64> for Real<'_> {
+    fn from(value: f64) -> Self {
+        Self::new(value)
     }
 }
 
-impl From<f64> for Plist {
-    fn from(val: f64) -> Self {
-        Plist::new_real(val)
+impl From<f64> for Value<'_> {
+    fn from(value: f64) -> Self {
+        Real::new(value).into()
+    }
+}
+
+impl From<Real<'_>> for f64 {
+    fn from(value: Real<'_>) -> Self {
+        value.as_float()
+    }
+}
+
+impl PartialEq for Real<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_float() == other.as_float()
+    }
+}
+
+impl Default for Real<'_> {
+    fn default() -> Self {
+        f64::default().into()
+    }
+}
+
+impl std::fmt::Display for Real<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_float().fmt(f)
+    }
+}
+
+#[cfg(feature = "clean_debug")]
+impl std::fmt::Debug for Real<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_float().fmt(f)
     }
 }
 
@@ -47,10 +77,14 @@ impl From<f64> for Plist {
 mod tests {
     use super::*;
 
+    const REAL1: f64 = 3.1415926;
+    const REAL2: f64 = 1234.098765;
+
     #[test]
-    fn real_test() {
-        let p = Plist::new_real(3.1415926);
-        p.set_real_val(1234.098765).unwrap();
-        assert_eq!(p.get_real_val().unwrap(), 1234.098765)
+    fn real() {
+        let mut p = Real::new(REAL1);
+        assert_eq!(p.as_float(), REAL1);
+        p.set(REAL2);
+        assert_eq!(p.as_float(), REAL2);
     }
 }

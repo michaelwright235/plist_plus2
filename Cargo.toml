@@ -1,6 +1,6 @@
 [package]
 name = "plist_plus"
-version = "0.2.6"
+version = "0.3.0"
 edition = "2021"
 authors = ["Jackson Coxson"]
 description = "A library for reading and writing plists, compatible with libimobiledevice"
@@ -16,21 +16,19 @@ keywords = [
 ]
 readme = "README.md"
 documentation = "https://docs.rs/plist_plus"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+exclude = ["/tests"]
 
 [dependencies]
-libc = "0.2.122"
-rand = "0.8.5"
-log = "0.4.*"
+libc = "0.2"
+log = "0.4"
 
 [build-dependencies]
-bindgen = "0.59.2"
-cc = "1.0.73"
-autotools = "0.2.5"
+bindgen = "0.71.1"
+autotools = "0.2"
 
 [features]
+default = ["clean_debug"]
 pls-generate = []
-dynamic = []
-static = []
-vendored = ["static"]
+vendored = []
+# Enables clean debug behavior that prints the actual inner values
+clean_debug = []

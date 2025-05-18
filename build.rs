@@ -1,8 +1,9 @@
-// jkcoxson
-
-extern crate bindgen;
-
 use std::{env, fs::canonicalize, path::PathBuf};
+
+// The version (git tag) of libplist that is going to be used
+// Changing it to a new major version may result in an incompatible pregenerated bindings
+const LIBPLIST_VERSION: &str = "2.6.0";
+const LIBPLIST_REPO: &str = "https://github.com/libimobiledevice/libplist.git";
 
 fn main() {
     // Tell cargo to invalidate the built crate whenever build files change
@@ -14,25 +15,23 @@ fn main() {
     ////////////////////////////
 
     if cfg!(feature = "pls-generate") {
-        // Get gnutls path per OS
-        let gnutls_path = match env::consts::OS {
-            "linux" => "/usr/include",
-            "macos" => "/opt/homebrew/include",
-            "windows" => {
-                panic!("Generating bindings on Windows is broken, pls remove the pls-generate feature.");
-            }
-            _ => panic!("Unsupported OS"),
-        };
+        let cur_path = env::current_dir().unwrap();
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+        // Clone the repo to access the headers
+        env::set_current_dir(&out_path).unwrap();
+        repo_clone(LIBPLIST_REPO, None);
+        env::set_current_dir(cur_path).unwrap();
 
         let bindings = bindgen::Builder::default()
             // The input header we would like to generate
             // bindings for.
             .header("wrapper.h")
-            // Include in clang build
-            .clang_arg(format!("-I{}", gnutls_path))
+            // Include an out dir, that contains a cloned repo
+            .clang_arg(format!("-I{}", out_path.as_os_str().to_str().unwrap()))
             // Tell cargo to invalidate the built crate whenever any of the
             // included header files changed.
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             // Finish the builder and generate the bindings.
             .generate()
             // Unwrap the Result and panic on failure.
@@ -50,9 +49,12 @@ fn main() {
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         env::set_current_dir(out_path).unwrap();
         // Clone the vendored libraries
-        repo_setup("https://github.com/libimobiledevice/libplist.git");
-
-        // Build those bad bois
+        if !cfg!(feature = "pls-generate") {
+            // Clone it only if it hasn't been earlier
+            repo_clone(LIBPLIST_REPO, Some(LIBPLIST_VERSION));
+        }
+        repo_setup(LIBPLIST_REPO);
+        // Build it
         let dst = autotools::Config::new("libplist")
             .without("cython", None)
             .build();
@@ -82,12 +84,22 @@ fn main() {
     }
 }
 
-fn repo_setup(url: &str) {
+/// Clones the repository with a given url.
+/// A branch (usually a git tag) can also be specified.
+fn repo_clone(url: &str, branch: Option<&str>) {
     let mut cmd = std::process::Command::new("git");
     cmd.arg("clone");
+    cmd.args(["--depth", "1"]);
+    if let Some(b) = branch {
+        cmd.args(["--branch", b]);
+    }
     cmd.arg(url);
     cmd.output().unwrap();
-    env::set_current_dir(url.split('/').last().unwrap().replace(".git", "")).unwrap();
+}
+
+/// Runs config commands for a repo
+fn repo_setup(url: &str) {
+    env::set_current_dir(url.split('/').next_back().unwrap().replace(".git", "")).unwrap();
     env::set_var("NOCONFIGURE", "1");
     let mut cmd = std::process::Command::new("./autogen.sh");
     let _ = cmd.output();

@@ -1,390 +1,653 @@
-#![allow(clippy::not_unsafe_ptr_arg_deref)]
-use error::PlistError;
-#[doc = include_str!("../README.md")]
-use log::{trace, warn};
-use rand::Rng;
-use std::{ffi::CString, fmt::Formatter, os::raw::c_char};
+#![doc = include_str!("../README.md")]
 
-pub mod error;
-mod iterator;
+mod error;
 mod types;
 mod unsafe_bindings;
+pub use error::*;
+pub use types::*;
 
-/// The main struct for the plist library
-/// This struct contains a pointer to the C compatible structure
-pub struct Plist {
-    pub(crate) plist_t: unsafe_bindings::plist_t,
-    pub plist_type: PlistType,
-    pub(crate) id: u32,
-    pub(crate) false_drop: bool,
+use std::ffi::CString;
+
+/// Represents any plist value.
+#[derive(Debug, PartialEq)]
+pub enum Value<'a> {
+    Array(Array<'a>),
+    Boolean(Boolean<'a>),
+    Data(Data<'a>),
+    Date(Date<'a>),
+    Dictionary(Dictionary<'a>),
+    Integer(Integer<'a>),
+    Key(Key<'a>),
+    Null(Null<'a>),
+    Real(Real<'a>),
+    PString(PString<'a>),
+    Uid(Uid<'a>),
 }
 
-unsafe impl Send for Plist {}
-unsafe impl Sync for Plist {}
+impl<'a> Value<'a> {
+    /// Exports the plist node as an XML format.
+    pub fn to_xml(&self) -> Result<String, Error> {
+        self.as_node().to_xml()
+    }
 
-/// The type of a given plist
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum PlistType {
-    Boolean,
-    Integer,
-    Real,
-    Date,
-    Data,
-    String,
-    Array,
-    Dictionary,
-    Unknown,
-    Key,
-    Uid,
-    None,
-}
+    /// Exports the plist node as a JSON format.
+    ///
+    /// Set `prettify` to `true` to compose a prettified JSON string.
+    pub fn to_json(&self, prettify: bool) -> Result<String, Error> {
+        self.as_node().to_json(prettify)
+    }
 
-impl Plist {
-    /// Returns a pointer to the underlying C compatible structure
-    /// This is compatible with libraries such as libimobiledevice
-    pub fn get_pointer(&self) -> *mut std::ffi::c_void {
-        self.plist_t
+    /// Exports the plist node as a binary encoded plist.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.as_node().to_bytes()
     }
-    /// This takes a string in the form of XML and returns a Plist struct
-    pub fn from_xml(xml: String) -> Result<Plist, PlistError> {
-        let xml = match CString::new(xml) {
-            Ok(s) => s,
-            Err(_) => {
-                warn!("Could not convert string to CString");
-                return Err(PlistError::InvalidArg);
-            }
-        };
-        let xml_len = std::convert::TryInto::try_into(xml.as_bytes().len()).unwrap();
-        let mut plist_t = unsafe { std::mem::zeroed() };
-        trace!("Parsing xml");
-        unsafe {
-            unsafe_bindings::plist_from_xml(xml.as_ptr() as *const c_char, xml_len, &mut plist_t)
-        };
-        Ok(plist_t.into())
+
+    /// Exports the plist node to an OpenStep ASCII encoded plist.
+    ///
+    /// Set `prettify` to `true` to compose a prettified string.
+    pub fn to_openstep(&self, prettify: bool) -> Result<String, Error> {
+        self.as_node().to_openstep(prettify)
     }
-    /// This takes a string in the form of binary and returns a Plist struct
-    pub fn from_bin(bin: Vec<u8>) -> Result<Plist, PlistError> {
-        let mut plist_t = unsafe { std::mem::zeroed() };
-        let result = unsafe {
-            unsafe_bindings::plist_from_bin(
-                bin.as_ptr() as *const c_char,
-                bin.len() as u32,
-                &mut plist_t,
-            )
-        };
-        if result != 0 {
-            return Err(result.into());
+
+    /// Returns a mutable reference to the value as a dynamic [Node] object.
+    pub(crate) fn as_node_mut(&mut self) -> &mut dyn Node {
+        match self {
+            Value::Array(v) => v as &mut dyn Node,
+            Value::Boolean(v) => v as &mut dyn Node,
+            Value::Data(v) => v as &mut dyn Node,
+            Value::Date(v) => v as &mut dyn Node,
+            Value::Dictionary(v) => v as &mut dyn Node,
+            Value::Integer(v) => v as &mut dyn Node,
+            Value::Key(v) => v as &mut dyn Node,
+            Value::Real(v) => v as &mut dyn Node,
+            Value::PString(v) => v as &mut dyn Node,
+            Value::Uid(v) => v as &mut dyn Node,
+            Value::Null(v) => v as &mut dyn Node,
         }
-        Ok(plist_t.into())
     }
-    pub fn from_memory(bin: Vec<u8>) -> Result<Plist, PlistError> {
-        let mut plist_t = unsafe { std::mem::zeroed() };
-        let result = unsafe {
-            unsafe_bindings::plist_from_memory(
-                bin.as_ptr() as *const c_char,
-                bin.len() as u32,
-                &mut plist_t,
-                std::ptr::null_mut(),
-            )
-        };
-        if result != 0 {
-            return Err(result.into());
+
+    /// Returns an immutable reference to the value as a dynamic [Node] object.
+    pub(crate) fn as_node(&self) -> &dyn Node {
+        match self {
+            Value::Array(v) => v as &dyn Node,
+            Value::Boolean(v) => v as &dyn Node,
+            Value::Data(v) => v as &dyn Node,
+            Value::Date(v) => v as &dyn Node,
+            Value::Dictionary(v) => v as &dyn Node,
+            Value::Integer(v) => v as &dyn Node,
+            Value::Key(v) => v as &dyn Node,
+            Value::Real(v) => v as &dyn Node,
+            Value::PString(v) => v as &dyn Node,
+            Value::Uid(v) => v as &dyn Node,
+            Value::Null(v) => v as &dyn Node,
         }
-        Ok(plist_t.into())
     }
-    /// This will back the plist to the plist it came from
-    /// This is unsafe due to how the underlying C library works
-    /// It will return a second copy of the plist, and should be false dropped if used
-    /// # Safety
-    /// Don't be stupid
-    pub unsafe fn get_parent(self) -> Plist {
-        trace!("Getting parent");
-        unsafe_bindings::plist_get_parent(self.plist_t).into()
-    }
-    /// Gets the type of the plist from the C library
-    pub fn get_node_type(&self) -> PlistType {
-        trace!("Getting node type");
-        unsafe { unsafe_bindings::plist_get_node_type(self.plist_t) }.into() // puts on sunglasses
-    }
-    /// Queries if the plist has a binary structure
-    pub fn is_binary(&self) -> bool {
-        let plist_data = unsafe { std::mem::zeroed() };
-        let plist_len = unsafe { std::mem::zeroed() };
-        trace!("Getting plist data");
-        unsafe {
-            unsafe_bindings::plist_get_data_val(self.plist_t, plist_data, plist_len);
+
+    /// If the [Value] is an Array, returns an immutable reference to the associated [Array].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_array(&self) -> Option<&Array<'a>> {
+        match self {
+            Value::Array(array) => Some(array),
+            _ => None,
         }
-        trace!("Checking if plist is binary");
-        !matches!(
-            unsafe {
-                unsafe_bindings::plist_is_binary(*plist_data, (*plist_len).try_into().unwrap())
+    }
+
+    /// If the [Value] is an Array, returns a mutable reference to the associated [Array].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_array_mut(&mut self) -> Option<&mut Array<'a>> {
+        match self {
+            Value::Array(array) => Some(array),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Boolean, returns an immutable reference to the associated [Boolean].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_boolean(&self) -> Option<&Boolean<'a>> {
+        match self {
+            Value::Boolean(boolean) => Some(boolean),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Boolean, returns a mutable reference to the associated [Boolean].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_boolean_mut(&mut self) -> Option<&mut Boolean<'a>> {
+        match self {
+            Value::Boolean(boolean) => Some(boolean),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Data, returns an immutable reference to the associated [Data].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_data(&self) -> Option<&Data<'a>> {
+        match self {
+            Value::Data(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Data, returns a mutable reference to the associated [Data].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_data_mut(&mut self) -> Option<&mut Data<'a>> {
+        match self {
+            Value::Data(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Date, returns an immutable reference to the associated [Date].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_date(&self) -> Option<&Date<'a>> {
+        match self {
+            Value::Date(date) => Some(date),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Date, returns a mutable reference to the associated [Date].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_date_mut(&mut self) -> Option<&mut Date<'a>> {
+        match self {
+            Value::Date(date) => Some(date),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Dictionary, returns an immutable reference to the associated [Dictionary].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_dictionary(&self) -> Option<&Dictionary<'a>> {
+        match self {
+            Value::Dictionary(dictionary) => Some(dictionary),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Dictionary, returns a mutable reference to the associated [Dictionary].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_dictionary_mut(&mut self) -> Option<&mut Dictionary<'a>> {
+        match self {
+            Value::Dictionary(dictionary) => Some(dictionary),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Real, returns an immutable reference to the associated [Real].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_real(&self) -> Option<&Real<'a>> {
+        match self {
+            Value::Real(real) => Some(real),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Real, returns a mutable reference to the associated [Real].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_real_mut(&mut self) -> Option<&mut Real<'a>> {
+        match self {
+            Value::Real(real) => Some(real),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is an Integer, returns an immutable reference to the associated [Integer].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_integer(&self) -> Option<&Integer<'a>> {
+        match self {
+            Value::Integer(integer) => Some(integer),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is an Integer, returns a mutable reference to the associated [Integer].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_integer_mut(&mut self) -> Option<&mut Integer<'a>> {
+        match self {
+            Value::Integer(integer) => Some(integer),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Key, returns an immutable reference to the associated [Key].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_key(&self) -> Option<&Key<'a>> {
+        match self {
+            Value::Key(key) => Some(key),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Key, returns a mutable reference to the associated [Key].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_key_mut(&mut self) -> Option<&mut Key<'a>> {
+        match self {
+            Value::Key(key) => Some(key),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a String, returns an immutable reference to the associated [PString].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_string(&self) -> Option<&PString<'a>> {
+        match self {
+            Value::PString(string) => Some(string),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a String, returns a mutable reference to the associated [PString].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_string_mut(&mut self) -> Option<&mut PString<'a>> {
+        match self {
+            Value::PString(string) => Some(string),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Uid, returns an immutable reference to the associated [Uid].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_uid(&self) -> Option<&Uid<'a>> {
+        match self {
+            Value::Uid(uid) => Some(uid),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Uid, returns a mutable reference to the associated [Uid].
+    ///
+    /// Returns [None] otherwise.
+    pub fn as_uid_mut(&mut self) -> Option<&mut Uid<'a>> {
+        match self {
+            Value::Uid(uid) => Some(uid),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is an Array, consumes itself and returns the associated [Array].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_array(self) -> Option<Array<'a>> {
+        match self {
+            Value::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Boolean, consumes itself and returns the associated [Boolean].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_boolean(self) -> Option<Boolean<'a>> {
+        match self {
+            Value::Boolean(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Data, consumes itself and returns the associated [Data].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_data(self) -> Option<Data<'a>> {
+        match self {
+            Value::Data(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Date, consumes itself and returns the associated [Date].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_date(self) -> Option<Date<'a>> {
+        match self {
+            Value::Date(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Dictionary, consumes itself and returns the associated [Dictionary].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_dictionary(self) -> Option<Dictionary<'a>> {
+        match self {
+            Value::Dictionary(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is an Integer, consumes itself and returns the associated [Integer].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_integer(self) -> Option<Integer<'a>> {
+        match self {
+            Value::Integer(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Key, consumes itself and returns the associated [Key].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_key(self) -> Option<Key<'a>> {
+        match self {
+            Value::Key(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Real, consumes itself and returns the associated [Real].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_real(self) -> Option<Real<'a>> {
+        match self {
+            Value::Real(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a String, consumes itself and returns the associated [PString].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_string(self) -> Option<PString<'a>> {
+        match self {
+            Value::PString(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// If the [Value] is a Uid, consumes itself and returns the associated [Uid].
+    ///
+    /// Returns [None] otherwise.
+    pub fn into_uid(self) -> Option<Uid<'a>> {
+        match self {
+            Value::Uid(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if the [Value] is a [Null].
+    pub fn is_null(&self) -> bool {
+        matches!(self, Value::Null(_))
+    }
+
+    /// Replaces the current Value with another one.
+    ///
+    /// The `new_value` will be cloned (this is how the C library works).
+    /// It's not efficient, use [Array::set] or [Dictionary::insert] when
+    /// possible.
+    ///
+    /// # Panics
+    /// This function panics if the `new_value` is either an Array, Dictionary,
+    /// Key or Null. They are not supported by the `libplist` in this scenario.
+    /// Use [Array::set] for arrays or [Dictionary::insert] for dictionaries to change their values.
+    pub fn replace_with(&mut self, new_value: &Value) {
+        let pointer = self.as_node().pointer();
+        let false_drop = self.as_node().false_drop();
+        let mut new_self = match new_value {
+            Value::Boolean(boolean) => unsafe {
+                unsafe_bindings::plist_set_bool_val(pointer, boolean.as_bool().into());
+                from_pointer(pointer)
             },
-            0
-        )
-    }
-    /// Traverses a list of plists
-    /// Reimplimented from the C function because function overloading is evil
-    pub fn access_path(self, plists: Vec<String>) -> Result<Plist, PlistError> {
-        let mut current = self;
-        let mut i = 0;
-        while i < plists.len() {
-            match current.plist_type {
-                PlistType::Array => {
-                    current = match current.array_get_item(i as u32) {
-                        Ok(item) => item,
-                        Err(_) => return Err(PlistError::InvalidArg),
-                    };
-                }
-                PlistType::Dictionary => {
-                    current = match current.dict_get_item(&plists[i]) {
-                        Ok(item) => item,
-                        Err(_) => return Err(PlistError::InvalidArg),
-                    };
-                }
-                _ => {
-                    return Err(PlistError::InvalidArg);
-                }
-            }
-            i += 1;
-        }
-        Ok(current.plist_t.into())
-    }
-
-    /// Disposes of the Rust structure without calling the destructor of the C structure
-    /// This is necessary when a function absorbs another plist.
-    /// That way, the rest of the plist struct is dropped, but the data at the pointer is not.
-    /// This prevents many segfaults, but may cause unknown memory leaks.
-    /// Needs more research...
-    pub fn false_drop(mut self) {
-        self.false_drop = true;
-        trace!("False dropping {}", self.id);
-    }
-
-    /// Compares two structs and determines if they are equal
-    pub fn compare_node_values(node_l: Plist, node_r: Plist) -> bool {
-        trace!("Comparing node values");
-        matches!(
-            unsafe { unsafe_bindings::plist_compare_node_value(node_l.plist_t, node_r.plist_t) }
-                .to_string()
-                .as_str(),
-            "TRUE"
-        )
-    }
-
-    pub fn get_display_value(&self) -> Result<String, PlistError> {
-        let mut to_return;
-        match self.plist_type {
-            PlistType::Boolean => {
-                to_return = self.get_bool_val()?.to_string();
-            }
-            PlistType::Integer => {
-                to_return = self.get_uint_val()?.to_string();
-            }
-            PlistType::Real => {
-                to_return = self.get_real_val()?.to_string();
-            }
-            PlistType::Data => {
-                to_return = format!("{:?}", self.get_data_val()?);
-            }
-            PlistType::Date => {
-                todo!();
-            }
-            PlistType::String => {
-                to_return = format!("\"{}\"", self.get_string_val()?);
-            }
-            PlistType::Array => {
-                to_return = "[".to_string();
-                for item in self.clone() {
-                    println!("Item go!");
-                    to_return = format!("{}{}", to_return, item.plist.get_display_value()?);
-                }
-                to_return = format!("{}]", to_return);
-            }
-            PlistType::Dictionary => {
-                to_return = "{ ".to_string();
-                for line in self.clone() {
-                    to_return = format!(
-                        "{}{}: {}, ",
-                        to_return,
-                        line.key.unwrap(),
-                        line.plist.get_display_value()?
-                    );
-                }
-                // Chop off the last comma and space
-                to_return = format!(
-                    "{} }}",
-                    to_return
-                        .chars()
-                        .take(to_return.len() - 2)
-                        .collect::<String>()
+            Value::Data(data) => unsafe {
+                unsafe_bindings::plist_set_data_val(
+                    pointer,
+                    data.as_bytes().as_ptr() as *const _,
+                    data.len(),
                 );
+                from_pointer(pointer)
+            },
+            Value::Date(date) => unsafe {
+                let mut sec = std::mem::zeroed();
+                let mut usec = std::mem::zeroed();
+                unsafe_bindings::plist_get_date_val(date.pointer, &mut sec, &mut usec);
+                unsafe_bindings::plist_set_date_val(pointer, sec, usec);
+                from_pointer(pointer)
+            },
+            Value::Integer(integer) => unsafe {
+                unsafe_bindings::plist_set_uint_val(pointer, integer.as_unsinged());
+                from_pointer(pointer)
+            },
+            Value::Real(real) => unsafe {
+                unsafe_bindings::plist_set_real_val(pointer, real.as_float());
+                from_pointer(pointer)
+            },
+            Value::PString(string) => unsafe {
+                let ptr =
+                    unsafe_bindings::plist_get_string_ptr(string.pointer, std::ptr::null_mut());
+                unsafe_bindings::plist_set_string_val(pointer, ptr);
+                from_pointer(pointer)
+            },
+            Value::Uid(uid) => unsafe {
+                unsafe_bindings::plist_set_uid_val(pointer, uid.get());
+                from_pointer(pointer)
+            },
+            Value::Array(_) | Value::Dictionary(_) | Value::Key(_) | Value::Null(_) => {
+                panic!("Replacing a plist node with a such value is not supported")
             }
-            PlistType::Uid => {
-                todo!();
-            }
-            PlistType::Key => {
-                todo!();
-            }
-            PlistType::Unknown => {
-                to_return = "Unknown".to_string();
-            }
-            PlistType::None => {
-                to_return = "None".to_string();
-            }
-        }
-
-        Ok(to_return)
-    }
-}
-
-impl From<unsafe_bindings::plist_t> for Plist {
-    fn from(plist_t: unsafe_bindings::plist_t) -> Self {
-        let mut rng = rand::thread_rng();
-        let id = rng.gen::<u32>();
-        trace!("Creating plist from plist_t with id {}", id);
-        Plist {
-            plist_t,
-            plist_type: unsafe { unsafe_bindings::plist_get_node_type(plist_t) }.into(),
-            id,
-            false_drop: false,
-        }
-    }
-}
-
-impl From<Plist> for String {
-    fn from(plist: Plist) -> Self {
-        let plist_t = plist.plist_t;
-        let mut plist_data = std::ptr::null_mut();
-        let mut plist_size = 0;
-        trace!("Converting plist to XML data");
-        unsafe {
-            unsafe_bindings::plist_to_xml(plist_t, &mut plist_data, &mut plist_size);
-        }
-        trace!("Assembling XML data");
-        let plist_data = unsafe {
-            std::slice::from_raw_parts(plist_data as *const u8, plist_size.try_into().unwrap())
         };
-        let plist_data = std::str::from_utf8(plist_data).unwrap();
-
-        String::from(plist_data)
+        // The old plist shoudn't be dropped, the pointer remains the same
+        self.as_node_mut().set_false_drop(true);
+        new_self.as_node_mut().set_false_drop(false_drop);
+        *self = new_self;
     }
 }
 
-impl ToString for Plist {
-    fn to_string(&self) -> String {
-        let mut plist_data = std::ptr::null_mut();
-        let mut plist_size = 0;
-        trace!("Converting plist to XML data");
-        unsafe {
-            unsafe_bindings::plist_to_xml(self.plist_t, &mut plist_data, &mut plist_size);
-        }
-        trace!("Assembling XML data");
+impl TryFrom<Value<'_>> for Vec<u8> {
+    type Error = Error;
 
-        let plist_data =
-            unsafe { std::slice::from_raw_parts(plist_data as *mut u8, plist_size as usize) };
-        let plist_data = std::str::from_utf8(plist_data).unwrap();
-
-        plist_data.to_string()
+    fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
+        value.to_bytes()
     }
 }
 
-impl From<Plist> for Vec<u8> {
-    fn from(plist: Plist) -> Self {
-        let plist_t = plist.plist_t;
-        let mut plist_data = std::ptr::null_mut();
-        let mut plist_size = 0;
-        trace!("Converting plist to binary data");
-        unsafe {
-            unsafe_bindings::plist_to_bin(plist_t, &mut plist_data, &mut plist_size);
-        }
-        trace!("Assembling binary data");
-        let plist_data = unsafe {
-            std::slice::from_raw_parts(plist_data as *const u8, plist_size.try_into().unwrap())
-        };
-
-        plist_data.to_vec()
+// I couldn't implement the standart Clone trait because of lifetimes.
+// Cloned value must have a lifetime of a function caller, not
+// of the old value.
+impl Value<'_> {
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'a>(&self) -> Value<'a> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.as_node().pointer()) };
+        unsafe { from_pointer(pointer) }
     }
 }
 
-impl Clone for Plist {
+/*
+impl Clone for Value<'_> {
     fn clone(&self) -> Self {
-        trace!("Cloning plist");
-        let plist_t = unsafe { unsafe_bindings::plist_copy(self.plist_t) };
-        trace!("Getting type of cloned plist");
-        plist_t.into()
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.as_node().pointer()) };
+        unsafe { from_pointer(pointer) }
     }
 }
 
-impl std::fmt::Debug for Plist {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let plist_data = self.to_string();
-        write!(f, "{:?}: {}", self.plist_type, plist_data)
+fn it_fails() {
+    let a = Array::new();
+    let b = a.get(0).unwrap().clone();
+    std::mem::drop(a); // doesn't compile
+    b.as_array();
+}
+ */
+
+/// Creates a new plist value from the a C pointer. A pointer should be created
+/// using the `libplist` library.
+///
+/// # Safety
+/// Use this function only when dealing with other C libraries / Rust FFI wrappers which
+/// use `libplist`. Passing an incorrent pointer will cause undefined behavior.
+///
+/// # Panics
+/// May panic if an incorrect pointer has been passed and it was recognized on the C side.
+pub unsafe fn from_pointer<'a>(pointer: unsafe_bindings::plist_t) -> Value<'a> {
+    let typ: NodeType = unsafe { unsafe_bindings::plist_get_node_type(pointer) }.into();
+    match typ {
+        NodeType::Array => Value::Array(Array {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Boolean => Value::Boolean(Boolean {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Data => Value::Data(Data {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Date => Value::Date(Date {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Dictionary => Value::Dictionary(Dictionary {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Integer => Value::Integer(Integer {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Key => Value::Key(Key {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Null => Value::Null(Null {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Real => Value::Real(Real {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::String => Value::PString(PString {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
+        NodeType::Uid => Value::Uid(Uid {
+            pointer,
+            false_drop: false,
+            phantom: std::marker::PhantomData,
+        }),
     }
 }
 
-impl Drop for Plist {
-    fn drop(&mut self) {
-        if !self.false_drop {
-            trace!("Dropping plist {}", self.id);
-            unsafe { unsafe_bindings::plist_free(self.plist_t) }
-            trace!("Plist dropped");
-        }
+/// Parses a JSON string and returns a [Value] struct representing a plist.
+pub fn from_json<'a>(json: impl Into<String>) -> Result<Value<'a>, Error> {
+    let json = CString::new(json.into())?;
+    let json_len: u32 = json.as_bytes().len() as u32;
+    let mut plist_t = unsafe { std::mem::zeroed() };
+    let result = unsafe { unsafe_bindings::plist_from_json(json.as_ptr(), json_len, &mut plist_t) };
+    if result != PLIST_ERROR_SUCCESS {
+        return Err(result.into());
     }
+    Ok(unsafe { from_pointer(plist_t) })
 }
 
-impl From<i32> for PlistType {
-    fn from(i: i32) -> Self {
-        match i {
-            0 => PlistType::Boolean,
-            1 => PlistType::Integer,
-            2 => PlistType::Real,
-            3 => PlistType::String,
-            4 => PlistType::Array,
-            5 => PlistType::Dictionary,
-            6 => PlistType::Date,
-            7 => PlistType::Data,
-            8 => PlistType::Key,
-            9 => PlistType::Uid,
-            10 => PlistType::None,
-            _ => PlistType::Unknown,
-        }
+/// Parses an XML string and returns a [Value] struct representing a plist.
+pub fn from_xml<'a>(xml: impl Into<String>) -> Result<Value<'a>, Error> {
+    let xml = CString::new(xml.into())?;
+    let xml_len: u32 = xml.as_bytes().len() as u32;
+    let mut plist_t = unsafe { std::mem::zeroed() };
+    let result = unsafe { unsafe_bindings::plist_from_xml(xml.as_ptr(), xml_len, &mut plist_t) };
+    if result != PLIST_ERROR_SUCCESS {
+        return Err(result.into());
     }
+    Ok(unsafe { from_pointer(plist_t) })
 }
 
-impl From<u32> for PlistType {
-    fn from(i: u32) -> Self {
-        match i {
-            0 => PlistType::Boolean,
-            1 => PlistType::Integer,
-            2 => PlistType::Real,
-            3 => PlistType::String,
-            4 => PlistType::Array,
-            5 => PlistType::Dictionary,
-            6 => PlistType::Date,
-            7 => PlistType::Data,
-            8 => PlistType::Key,
-            9 => PlistType::Uid,
-            10 => PlistType::None,
-            _ => PlistType::Unknown,
-        }
+/// Parses a slice of bytes as a binary plist and returns a [Value] struct.
+pub fn from_binary<'a>(bytes: &[u8]) -> Result<Value<'a>, Error> {
+    let mut plist_t = unsafe { std::mem::zeroed() };
+    let result = unsafe {
+        unsafe_bindings::plist_from_bin(bytes.as_ptr() as *mut _, bytes.len() as u32, &mut plist_t)
+    };
+    if result != PLIST_ERROR_SUCCESS {
+        return Err(result.into());
     }
+    Ok(unsafe { from_pointer(plist_t) })
 }
 
-impl From<PlistType> for String {
-    fn from(plist_type: PlistType) -> String {
-        match plist_type {
-            PlistType::Boolean => "Boolean".to_string(),
-            PlistType::Integer => "Integer".to_string(),
-            PlistType::Real => "Real".to_string(),
-            PlistType::Date => "Date".to_string(),
-            PlistType::Data => "Data".to_string(),
-            PlistType::String => "String".to_string(),
-            PlistType::Array => "Array".to_string(),
-            PlistType::Dictionary => "Dictionary".to_string(),
-            PlistType::Unknown => "Unknown".to_string(),
-            PlistType::Key => "Key".to_string(),
-            PlistType::Uid => "Uid".to_string(),
-            PlistType::None => "None".to_string(),
-        }
+/// Parses OpenStep ASCII string and returns a [Value] struct representing a plist.
+pub fn from_openstep<'a>(xml: impl Into<String>) -> Result<Value<'a>, Error> {
+    let openstep = CString::new(xml.into())?;
+    let openstep_len: u32 = openstep.as_bytes().len() as u32;
+    let mut plist_t = unsafe { std::mem::zeroed() };
+    let result = unsafe {
+        unsafe_bindings::plist_from_openstep(
+            openstep.as_ptr() as *const _,
+            openstep_len,
+            &mut plist_t,
+        )
+    };
+    if result != PLIST_ERROR_SUCCESS {
+        return Err(result.into());
+    }
+    Ok(unsafe { from_pointer(plist_t) })
+}
+
+/// Parses a slice of bytes, determines its plist format and returns a [Value] struct representing a plist.
+pub fn from_memory<'a>(bytes: &[u8]) -> Result<Value<'a>, Error> {
+    let mut plist_t = unsafe { std::mem::zeroed() };
+    let result = unsafe {
+        unsafe_bindings::plist_from_memory(
+            bytes.as_ptr() as *mut _,
+            bytes.len() as u32,
+            &mut plist_t,
+            std::ptr::null_mut(),
+        )
+    };
+    if result != PLIST_ERROR_SUCCESS {
+        return Err(result.into());
+    }
+    Ok(unsafe { from_pointer(plist_t) })
+}
+
+/// Reads a file, determines its plist format and returns a [Value] struct representing a plist.
+pub fn from_file<'a>(path: impl AsRef<std::path::Path>) -> Result<Value<'a>, Error> {
+    let bytes = std::fs::read(path).map_err(|_| Error::IO)?;
+    from_memory(&bytes)
+}
+
+mod plist_ffi {
+    use crate::unsafe_bindings;
+
+    /// A common trait for any plist node for dealing
+    /// with underlying C structures.
+    pub trait PlistFFI {
+        /// Returns the pointer to a corresponding C structure.
+        fn pointer(&self) -> unsafe_bindings::plist_t;
+
+        /// Returns `true` if the plist is going to be *false* dropped.
+        fn false_drop(&self) -> bool;
+
+        /// Sometimes (eg. when returning a value of an array or dict) we
+        /// need to *false* drop such values. Essentialy we create a pointer
+        /// to a C struct and we don't own it. Freeing such values causes UB.
+        fn set_false_drop(&mut self, value: bool);
     }
 }
