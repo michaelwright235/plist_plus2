@@ -1,8 +1,7 @@
-use crate::unsafe_bindings;
-use core::ffi::c_int;
+use crate::unsafe_bindings::{self, plist_err_t};
 
 /// Operation successful
-pub(crate) const PLIST_ERROR_SUCCESS: c_int = unsafe_bindings::plist_err_t_PLIST_ERR_SUCCESS;
+pub(crate) const PLIST_ERROR_SUCCESS: plist_err_t = unsafe_bindings::plist_err_t_PLIST_ERR_SUCCESS;
 
 /// All possible errors that can occur when working with plist data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,8 +20,8 @@ pub enum Error {
     Unknown,
 }
 
-impl From<c_int> for Error {
-    fn from(code: c_int) -> Error {
+impl From<plist_err_t> for Error {
+    fn from(code: plist_err_t) -> Error {
         match code {
             // The *success* variant is intentionally omitted in PlistError,
             // since it's not an error... So we manually check it in functions.
