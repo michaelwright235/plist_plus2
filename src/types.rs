@@ -22,8 +22,7 @@ pub use real::Real;
 pub use string::PString;
 pub use uid::Uid;
 
-use crate::{unsafe_bindings, Error, Value, PLIST_ERROR_SUCCESS};
-use core::ffi::c_int;
+use crate::{unsafe_bindings::{self, plist_type}, Error, Value, PLIST_ERROR_SUCCESS};
 
 /// A common trait for any plist node.
 pub trait Node: crate::plist_ffi::PlistFFI {
@@ -148,8 +147,8 @@ pub(crate) enum NodeType {
     Null,
 }
 
-impl From<c_int> for NodeType {
-    fn from(i: c_int) -> Self {
+impl From<plist_type> for NodeType {
+    fn from(i: plist_type) -> Self {
         match i {
             unsafe_bindings::plist_type_PLIST_NONE => {
                 panic!("`None` variant shoudn't happen. An invalid pointer has been passed.")
