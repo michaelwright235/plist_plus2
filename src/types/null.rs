@@ -31,6 +31,12 @@ impl PartialEq for Null<'_> {
     }
 }
 
+impl Clone for Null<'_> {
+    fn clone(&self) -> Self {
+        Self::new()
+    }
+}
+
 impl Default for Null<'_> {
     fn default() -> Self {
         Self::new()

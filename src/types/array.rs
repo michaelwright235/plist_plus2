@@ -126,13 +126,18 @@ impl<'a> Array<'a> {
     pub fn to_vec<'b>(&self) -> Vec<Value<'b>> {
         // The values of an array should be cloned since it will be dropped
         // at the end.
-        // It's one of the reasons why I couldn't implemented IntoIter for Array,
-        // the lifetime of outcoming values will match one of the original array.
         let mut values = Vec::with_capacity(self.len() as usize);
         for value in self {
             values.push(value.clone());
         }
         values
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Array<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_array().unwrap()
     }
 }
 

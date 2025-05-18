@@ -28,6 +28,13 @@ impl Real<'_> {
     pub fn set(&mut self, value: f64) {
         unsafe { unsafe_bindings::plist_set_real_val(self.pointer, value) }
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Real<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_real().unwrap()
+    }
 }
 
 impl From<f64> for Real<'_> {

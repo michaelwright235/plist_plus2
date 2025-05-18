@@ -64,6 +64,13 @@ impl Date<'_> {
             - (secs as i128 * 1000000)) as i32;
         unsafe { unsafe_bindings::plist_set_date_val(self.pointer, secs, usecs) };
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Date<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_date().unwrap()
+    }
 }
 
 impl From<Duration> for Date<'_> {

@@ -52,6 +52,13 @@ impl Data<'_> {
             )
         }
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Data<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_data().unwrap()
+    }
 }
 
 impl From<Vec<u8>> for Data<'_> {

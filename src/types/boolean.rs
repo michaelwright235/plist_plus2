@@ -28,6 +28,13 @@ impl Boolean<'_> {
     pub fn set(&mut self, value: bool) {
         unsafe { unsafe_bindings::plist_set_bool_val(self.pointer, value.into()) }
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Boolean<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_boolean().unwrap()
+    }
 }
 
 impl From<bool> for Boolean<'_> {

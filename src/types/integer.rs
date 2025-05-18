@@ -51,6 +51,13 @@ impl Integer<'_> {
     pub fn set_signed(&mut self, value: i64) {
         unsafe { unsafe_bindings::plist_set_int_val(self.pointer, value) }
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Integer<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_integer().unwrap()
+    }
 }
 
 impl From<Integer<'_>> for u64 {

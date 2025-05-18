@@ -28,6 +28,13 @@ impl Uid<'_> {
     pub fn set(&mut self, uid: u64) {
         unsafe { unsafe_bindings::plist_set_uid_val(self.pointer, uid) }
     }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Clones the value and gives it a lifetime of a caller.
+    pub fn clone<'b>(&self) -> Uid<'b> {
+        let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
+        (unsafe { crate::from_pointer(pointer) }).into_uid().unwrap()
+    }
 }
 
 impl From<Uid<'_>> for u64 {
