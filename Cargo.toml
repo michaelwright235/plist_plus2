@@ -20,7 +20,6 @@ exclude = ["/tests"]
 
 [dependencies]
 libc = "0.2"
-log = "0.4"
 
 [build-dependencies]
 bindgen = "0.71.1"
