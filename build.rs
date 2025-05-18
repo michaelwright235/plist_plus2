@@ -2,7 +2,7 @@ use std::{env, fs::canonicalize, path::PathBuf};
 
 // The version (git tag) of libplist that is going to be used
 // Changing it to a new major version may result in an incompatible pregenerated bindings
-const LIBPLIST_VERSION: &str = "2.6.0";
+const LIBPLIST_VERSION: &str = "2.7.0";
 const LIBPLIST_REPO: &str = "https://github.com/libimobiledevice/libplist.git";
 
 fn main() {

@@ -7,7 +7,7 @@ In other cases [plist](https://crates.io/crates/plist) crate is more convenient 
 
 The crate follows the API style used in the [plist](https://crates.io/crates/plist) crate.
 
-The crate currently targets libplist v2.6.0.
+The crate currently targets libplist v2.7.0.
 
 ## Notes
 
