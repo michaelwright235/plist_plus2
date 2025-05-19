@@ -2,7 +2,7 @@
 name = "plist_plus"
 version = "0.3.0"
 edition = "2021"
-authors = ["Jackson Coxson"]
+authors = ["Jackson Coxson", "Michael Wright"]
 description = "A library for reading and writing plists, compatible with libimobiledevice"
 homepage = "https://github.com/jkcoxson/plist_plus"
 repository = "https://github.com/jkcoxson/plist_plus"
