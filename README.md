@@ -18,7 +18,7 @@ an `Item<'a>` that only can be access while the original array exists.
 
 ## Examples
 
-## Parsing a plist from a file
+### Parsing a plist from a file
 
 ```rust
 use plist_plus::{from_file, Dictionary};
