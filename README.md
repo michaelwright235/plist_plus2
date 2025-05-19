@@ -18,34 +18,6 @@ an `Item<'a>` that only can be access while the original array exists.
 
 ## Examples
 
-### Reading a plist
-
-The following example is taken from `idevicelistapps.rs` of `rusty_libimobiledevice`
-and was simplified. It looks up all the installed apps on an iOS device.
-
-```rust
-use plist_plus::{Array, Dictionary, Value};
-
-fn lookup<'a>() -> Value<'a> {
-    let arr = Value::Array(Array::new());
-    /* some code is omitted */
-    return arr;
-}
-
-// Returns all installed apps as a plist
-let lookup_results_plist: Value = lookup();
-// The returned value is actually an Array containing Dictionaries
-let lookup_results: Array = lookup_results_plist.into_array().unwrap();
-
-// Interate over it and print values from a Dictionary
-for item in &lookup_results {
-    let dict: &Dictionary = item.as_dictionary().unwrap();
-    let app_id = dict.get("CFBundleIdentifier").unwrap().as_string().unwrap().to_string();
-    let app_name = dict.get("CFBundleDisplayName").unwrap().as_string().unwrap().to_string();
-    println!("{app_id}: {app_name}");
-}
-```
-
 ## Parsing a plist from a file
 
 ```rust
@@ -55,7 +27,7 @@ use plist_plus::{from_file, Dictionary};
 let plist: Dictionary = from_file("./tests/book.plist").unwrap().into_dictionary().unwrap();
 // Print its keys and values
 for (key, value) in &plist {
-    println!("{} => {:?}", key, value)
+    println!("{key} => {value:?}");
 }
 ```
 
