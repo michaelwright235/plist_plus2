@@ -634,14 +634,8 @@ pub fn from_file<'a>(path: impl AsRef<std::path::Path>) -> Result<Value<'a>, Err
 }
 
 mod plist_ffi {
-    use crate::unsafe_bindings;
-
-    /// A common trait for any plist node for dealing
-    /// with underlying C structures.
+    /// A hidden trait for any node for dealing with false dropping
     pub trait PlistFFI {
-        /// Returns the pointer to a corresponding C structure.
-        fn pointer(&self) -> unsafe_bindings::plist_t;
-
         /// Returns `true` if the plist is going to be *false* dropped.
         fn false_drop(&self) -> bool;
 

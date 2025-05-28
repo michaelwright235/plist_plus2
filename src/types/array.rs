@@ -1,5 +1,5 @@
 use super::{Item, ItemMut};
-use crate::{Value, plist_ffi::PlistFFI, unsafe_bindings};
+use crate::{Value, Node, unsafe_bindings};
 use core::ffi::c_void;
 
 crate::impl_node!(

@@ -29,6 +29,9 @@ use crate::{
 
 /// A common trait for any plist node.
 pub trait Node: crate::plist_ffi::PlistFFI {
+    /// Returns the pointer to a corresponding C structure.
+    fn pointer(&self) -> unsafe_bindings::plist_t;
+
     /// Exports the plist node as an XML format.
     fn to_xml(&self) -> Result<String, Error> {
         let mut xml_ptr = std::ptr::null_mut();
@@ -244,10 +247,6 @@ macro_rules! impl_node {
         }
 
         impl $crate::plist_ffi::PlistFFI for $name<'_> {
-            fn pointer(&self) -> $crate::unsafe_bindings::plist_t {
-                self.pointer
-            }
-
             fn false_drop(&self) -> bool {
                 self.false_drop
             }
@@ -257,7 +256,11 @@ macro_rules! impl_node {
             }
         }
 
-        impl $crate::Node for $name<'_> {}
+        impl $crate::Node for $name<'_> {
+            fn pointer(&self) -> $crate::unsafe_bindings::plist_t {
+                self.pointer
+            }
+        }
 
         impl<'a> From<$name<'a>> for $crate::Value<'a> {
             fn from(value: $name<'a>) -> Self {
@@ -268,6 +271,7 @@ macro_rules! impl_node {
         impl Drop for $name<'_> {
             fn drop(&mut self) {
                 use $crate::plist_ffi::PlistFFI;
+                use $crate::Node;
                 if !self.false_drop() {
                     unsafe { $crate::unsafe_bindings::plist_free(self.pointer()) }
                 }
