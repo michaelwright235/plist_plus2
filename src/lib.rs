@@ -49,6 +49,11 @@ impl<'a> Value<'a> {
         self.as_node().to_openstep(prettify)
     }
 
+    /// Returns the pointer to a corresponding C structure.
+    pub fn pointer(&self) -> unsafe_bindings::plist_t {
+        self.as_node().pointer()
+    }
+
     /// Returns a mutable reference to the value as a dynamic [Node] object.
     pub(crate) fn as_node_mut(&mut self) -> &mut dyn Node {
         match self {
