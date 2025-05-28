@@ -217,14 +217,13 @@ impl<'a, 'b> IntoIterator for &'a mut Dictionary<'b> {
 }
 
 fn iter_next<'a>(dict: &Dictionary<'a>, iter_pointer: *mut c_void) -> Option<(Key<'a>, Value<'a>)> {
-    let mut key_str = unsafe { std::mem::zeroed() };
     let mut value_ptr = unsafe { std::mem::zeroed() };
     // Getting next item in dictionary
     unsafe {
         unsafe_bindings::plist_dict_next_item(
             dict.pointer(),
             iter_pointer,
-            &mut key_str,
+            std::ptr::null_mut(),
             &mut value_ptr,
         )
     };
