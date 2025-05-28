@@ -1,4 +1,4 @@
-use plist_plus2::{array, dict, Uid, Value};
+use plist_plus2::{Uid, Value, array, dict};
 use std::time::Duration;
 
 #[test]

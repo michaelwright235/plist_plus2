@@ -1,4 +1,4 @@
-use crate::{unsafe_bindings, Value};
+use crate::{Value, unsafe_bindings};
 use std::ffi::CString;
 
 crate::impl_node!(
@@ -44,7 +44,9 @@ impl PString<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> PString<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_string().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_string()
+            .unwrap()
     }
 }
 

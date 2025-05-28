@@ -33,7 +33,9 @@ impl Uid<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Uid<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_uid().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_uid()
+            .unwrap()
     }
 }
 

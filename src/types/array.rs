@@ -1,5 +1,5 @@
 use super::{Item, ItemMut};
-use crate::{plist_ffi::PlistFFI, unsafe_bindings, Value};
+use crate::{Value, plist_ffi::PlistFFI, unsafe_bindings};
 use core::ffi::c_void;
 
 crate::impl_node!(
@@ -88,11 +88,7 @@ impl<'a> Array<'a> {
         let mut value = value.into();
         value.as_node_mut().set_false_drop(true);
         unsafe {
-            unsafe_bindings::plist_array_insert_item(
-                self.pointer,
-                value.as_node().pointer(),
-                index,
-            )
+            unsafe_bindings::plist_array_insert_item(self.pointer, value.as_node().pointer(), index)
         }
     }
 
@@ -137,7 +133,9 @@ impl<'a> Array<'a> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Array<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_array().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_array()
+            .unwrap()
     }
 }
 

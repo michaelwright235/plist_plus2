@@ -1,4 +1,4 @@
-use crate::{plist_ffi::PlistFFI, unsafe_bindings, Value};
+use crate::{Value, plist_ffi::PlistFFI, unsafe_bindings};
 use core::ffi::c_void;
 use std::ffi::CString;
 
@@ -133,7 +133,9 @@ impl<'a> Dictionary<'a> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Dictionary<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_dictionary().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_dictionary()
+            .unwrap()
     }
 }
 

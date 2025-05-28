@@ -1,4 +1,4 @@
-use crate::{unsafe_bindings, Value};
+use crate::{Value, unsafe_bindings};
 
 crate::impl_node!(
     /// A boolean plist node.
@@ -33,7 +33,9 @@ impl Boolean<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Boolean<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_boolean().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_boolean()
+            .unwrap()
     }
 }
 

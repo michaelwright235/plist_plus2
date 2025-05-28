@@ -1,4 +1,4 @@
-use crate::{unsafe_bindings, Value};
+use crate::{Value, unsafe_bindings};
 use std::time::{Duration, SystemTime};
 
 const MAC_EPOCH: u64 = 978307200; // 01/01/2001
@@ -65,7 +65,9 @@ impl Date<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Date<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_date().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_date()
+            .unwrap()
     }
 }
 

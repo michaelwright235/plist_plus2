@@ -22,7 +22,10 @@ pub use real::Real;
 pub use string::PString;
 pub use uid::Uid;
 
-use crate::{unsafe_bindings::{self, plist_type}, Error, Value, PLIST_ERROR_SUCCESS};
+use crate::{
+    Error, PLIST_ERROR_SUCCESS, Value,
+    unsafe_bindings::{self, plist_type},
+};
 
 /// A common trait for any plist node.
 pub trait Node: crate::plist_ffi::PlistFFI {

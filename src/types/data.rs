@@ -1,4 +1,4 @@
-use crate::{unsafe_bindings, Value};
+use crate::{Value, unsafe_bindings};
 use core::ffi::c_char;
 
 crate::impl_node!(
@@ -57,7 +57,9 @@ impl Data<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Data<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_data().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_data()
+            .unwrap()
     }
 }
 

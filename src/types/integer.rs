@@ -1,4 +1,4 @@
-use crate::{unsafe_bindings, Value};
+use crate::{Value, unsafe_bindings};
 
 crate::impl_node!(
     /// An integer that can be represented by either an `i64` or a `u64`.
@@ -56,7 +56,9 @@ impl Integer<'_> {
     /// Clones the value and gives it a lifetime of a caller.
     pub fn clone<'b>(&self) -> Integer<'b> {
         let pointer = unsafe { unsafe_bindings::plist_copy(self.pointer) };
-        (unsafe { crate::from_pointer(pointer) }).into_integer().unwrap()
+        (unsafe { crate::from_pointer(pointer) })
+            .into_integer()
+            .unwrap()
     }
 }
 
