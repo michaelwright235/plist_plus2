@@ -198,7 +198,7 @@ impl<'a> std::ops::Deref for Item<'a> {
 /// actually do nothing.
 ///
 /// ```rust
-/// use plist_plus::{array, Boolean, Value};
+/// use plist_plus2::{array, Boolean, Value};
 ///
 /// let mut arr = array!(0, 1, 2);
 /// let new_value: Value = Boolean::new(true).into();

@@ -21,7 +21,7 @@ impl Date<'_> {
     /// # Example
     /// ```rust
     /// use std::time::{Duration, SystemTime};
-    /// use plist_plus::Date;
+    /// use plist_plus2::Date;
     ///
     /// let some_date = Date::new(Duration::from_secs(1546635600));
     /// let now: Date = SystemTime::now().into();

@@ -294,7 +294,7 @@ where
 ///
 /// # Example
 /// ```rust
-/// use plist_plus::dict;
+/// use plist_plus2::dict;
 ///
 /// let some_dict = dict!("hello" => "world", "some_it" => -34);
 /// println!("{some_dict:?}");

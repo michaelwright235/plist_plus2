@@ -145,7 +145,7 @@ impl<'a> Array<'a> {
 ///
 /// # Example
 /// ```rust
-/// use plist_plus::{array, Uid};
+/// use plist_plus2::{array, Uid};
 ///
 /// let arr = array!("Hello World", 123, Uid::new(4), -9.5);
 /// println!("{arr:?}");

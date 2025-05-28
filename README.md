@@ -22,7 +22,7 @@ an `Item<'a>` that only can be access while the original array exists.
 ### Parsing a plist from a file
 
 ```rust
-use plist_plus::{from_file, Dictionary};
+use plist_plus2::{from_file, Dictionary};
 
 // Read a plist containing a dictionary
 let plist: Dictionary = from_file("./tests/book.plist").unwrap().into_dictionary().unwrap();
@@ -35,8 +35,8 @@ for (key, value) in &plist {
 ### Creating a plist
 
 ```rust
-fn main() -> Result<(), plist_plus::Error> {
-    use plist_plus::{array, Dictionary, dict, Node};
+fn main() -> Result<(), plist_plus2::Error> {
+    use plist_plus2::{array, Dictionary, dict, Node};
 
     // Create a basic plist
     let plist: Dictionary = dict!(
