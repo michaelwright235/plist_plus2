@@ -151,12 +151,15 @@ impl PartialEq for Dictionary<'_> {
             return false;
         }
         for (key, item) in self.iter() {
-            if let Some(j) = other.get(key) {
-                if item != j {
+            match other.get(key) {
+                Some(j) => {
+                    if item != j {
+                        return false;
+                    }
+                }
+                None => {
                     return false;
                 }
-            } else {
-                return false;
             }
         }
         true
