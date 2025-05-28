@@ -1,6 +1,7 @@
-# Plist Plus
+# Plist Plus 2
 
 A safe Rust wrapper around [libplist](https://github.com/libimobiledevice/libplist).
+Based on the [jkcoxson's repo](https://github.com/jkcoxson/plist_plus).
 
 Use this crate when dealing with C libraries or Rust FFI wrappers which use `libplist`.
 In other cases [plist](https://crates.io/crates/plist) crate is more convenient and efficient.

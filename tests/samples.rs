@@ -1,9 +1,9 @@
-use plist_plus::{array, dict, Uid, Value};
+use plist_plus2::{array, dict, Uid, Value};
 use std::time::Duration;
 
 #[test]
 fn ascii_animals() {
-    let plist = plist_plus::from_file("./tests/ascii-animals.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/ascii-animals.plist").unwrap();
     let dict: Value = dict!(
         "AnimalColors" => dict!(
             "lamb" => "black",
@@ -28,7 +28,7 @@ fn ascii_animals() {
 
 #[test]
 fn ascii_sample() {
-    let plist = plist_plus::from_file("./tests/ascii-sample.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/ascii-sample.plist").unwrap();
     println!("{plist:?}");
     let dict: Value = dict!(
         "KeyName1" => "Value1",
@@ -47,13 +47,13 @@ fn ascii_sample() {
 #[test]
 #[should_panic]
 fn binary_circular_array() {
-    plist_plus::from_file("./tests/binary_circular_array.plist").unwrap();
+    plist_plus2::from_file("./tests/binary_circular_array.plist").unwrap();
 }
 
 #[allow(non_snake_case)]
 #[test]
 fn binary_NSKeyedArchiver() {
-    let plist = plist_plus::from_file("./tests/binary_NSKeyedArchiver.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/binary_NSKeyedArchiver.plist").unwrap();
 
     let data: Vec<u8> = vec![
         3, 2, 8, 1, 12, 6, 21, 1, 23, 1, 25, 1, 27, 2, 31, 8, 44, 1, 48, 1, 51, 1, 53, 3, 60, 2,
@@ -95,13 +95,13 @@ fn binary_NSKeyedArchiver() {
 #[test]
 #[should_panic]
 fn binary_zero_offset_size() {
-    let plist = plist_plus::from_file("./tests/binary_zero_offset_size.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/binary_zero_offset_size.plist").unwrap();
     println!("{plist:?}");
 }
 
 #[test]
 fn binary() {
-    let plist = plist_plus::from_file("./tests/binary.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/binary.plist").unwrap();
 
     let data: Vec<u8> = vec![0, 0, 0, 190, 0, 0, 0, 3, 0, 0, 0, 30, 0, 0, 0];
     let dict: Value = dict!(
@@ -128,7 +128,7 @@ fn binary() {
 
 #[test]
 fn book() {
-    let plist = plist_plus::from_file("./tests/book.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/book.plist").unwrap();
     let dict: Value = dict!(
         "Title" => "Great Expectations",
         "Author" => "Charles Dickens",
@@ -140,7 +140,7 @@ fn book() {
 
 #[test]
 fn utf16_bplist() {
-    let plist = plist_plus::from_file("./tests/utf16_bplist.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/utf16_bplist.plist").unwrap();
     let dict: Value = dict!(
         "name" => "★ or better",
         "longText" => "The sun was shining on the sea, \nShining with all his might: \nHe did his very best to make \nThe billows smooth and bright\n-- And this was odd, because it was \nThe middle of the night. \n\nThe moon was shining sulkily, \nBecause she thought the sun\nHad got no business to be there \nAfter the day was done\n-- \"It's very rude of him,\" she said, \n\"To come and spoil the fun!\" \n\nThe sea was wet as wet could be,\nThe sands were dry as dry. \nYou could not see a cloud, because \nNo cloud was in the sky: \nNo birds were flying overhead\n-- There were no birds to fly. \n\nIn a Wonderland they lie \nDreaming as the days go by, \nDreaming as the summer die.\n★"
@@ -151,12 +151,12 @@ fn utf16_bplist() {
 #[test]
 #[should_panic]
 fn xml_error() {
-    plist_plus::from_file("./tests/xml_error.plist").unwrap();
+    plist_plus2::from_file("./tests/xml_error.plist").unwrap();
 }
 
 #[test]
 fn xml_animals() {
-    let plist = plist_plus::from_file("./tests/xml-animals.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/xml-animals.plist").unwrap();
     let dict: Value = dict!(
         "AnimalColors" => dict!(
             "lamb" => "black",
@@ -181,7 +181,7 @@ fn xml_animals() {
 
 #[test]
 fn xml() {
-    let plist = plist_plus::from_file("./tests/xml.plist").unwrap();
+    let plist = plist_plus2::from_file("./tests/xml.plist").unwrap();
     let data: Vec<u8> = vec![0, 0, 0, 190, 0, 0, 0, 3, 0, 0, 0, 30, 0, 0, 0];
     let dict: Value = dict!(
         "Author" => "William Shakespeare",

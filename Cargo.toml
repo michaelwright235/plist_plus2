@@ -1,11 +1,11 @@
 [package]
-name = "plist_plus"
-version = "0.3.0"
+name = "plist_plus2"
+version = "0.1.0"
 edition = "2021"
-authors = ["Jackson Coxson", "Michael Wright"]
+authors = ["Michael Wright", "Jackson Coxson"]
 description = "A library for reading and writing plists, compatible with libimobiledevice"
-homepage = "https://github.com/jkcoxson/plist_plus"
-repository = "https://github.com/jkcoxson/plist_plus"
+homepage = "https://github.com/michaelwright235/plist_plus2"
+repository = "https://github.com/michaelwright235/plist_plus2"
 license = "LGPL-2.1-or-later"
 keywords = [
   "plist",
@@ -15,7 +15,7 @@ keywords = [
   "libplist_plus",
 ]
 readme = "README.md"
-documentation = "https://docs.rs/plist_plus"
+documentation = "https://docs.rs/plist_plus2"
 exclude = ["/tests"]
 
 [dependencies]

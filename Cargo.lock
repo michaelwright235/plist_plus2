@@ -147,8 +147,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "plist_plus"
-version = "0.3.0"
+name = "plist_plus2"
+version = "0.1.0"
 dependencies = [
  "autotools",
  "bindgen",
