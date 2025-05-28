@@ -100,9 +100,13 @@ fn repo_clone(url: &str, branch: Option<&str>) {
 /// Runs config commands for a repo
 fn repo_setup(url: &str) {
     env::set_current_dir(url.split('/').next_back().unwrap().replace(".git", "")).unwrap();
-    env::set_var("NOCONFIGURE", "1");
+    unsafe {
+        env::set_var("NOCONFIGURE", "1");
+    }
     let mut cmd = std::process::Command::new("./autogen.sh");
     let _ = cmd.output();
-    env::remove_var("NOCONFIGURE");
+    unsafe {
+        env::remove_var("NOCONFIGURE");
+    }
     env::set_current_dir("..").unwrap();
 }
