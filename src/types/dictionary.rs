@@ -173,7 +173,7 @@ impl std::fmt::Debug for Dictionary<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut values = Vec::with_capacity(self.len() as usize);
         for (key, item) in self {
-            values.push((key, item));
+            values.push((key, item.0));
         }
         f.debug_map().entries(values).finish()
     }
